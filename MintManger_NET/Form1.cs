@@ -82,6 +82,10 @@ namespace MintManger_NET
                 while (!tmp_b && !quit)
                 {
                     tmp_b = net.Send("");
+                    if(!tmp_b)
+                    {
+                        net.ChangeURL("https://mintmanga.live/list?letter=" + letter + "&sortType=name");
+                    }
                     Thread.Sleep(100);
                 }
                 if (quit) return;

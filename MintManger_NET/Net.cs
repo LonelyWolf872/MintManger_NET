@@ -112,18 +112,16 @@ namespace LowUtilities
                 }
                 else
                 {
-                    if (http.RequestUri.ToString().IndexOf("?") == -1)
+                    using (HttpWebResponse response = (HttpWebResponse)http.GetResponse())
                     {
-                        //Debug.Fail(http.RequestUri.ToString());
+                        _response = new StreamReader(response.GetResponseStream()).ReadToEnd();
+                        cookies = response.Cookies;
                     }
-                    HttpWebResponse response = (HttpWebResponse)http.GetResponse();
-                    _response = new StreamReader(response.GetResponseStream()).ReadToEnd();
-                    cookies = response.Cookies;
                 }
                 return true;
             } catch (Exception e)
             {
-                //Debug.Fail(e.Message);
+                Debug.WriteLine(e.Message + " | " + e.StackTrace);
                 return false;
             }
         }
