@@ -1,4 +1,4 @@
-# MintManger_NET
+# MintManger.NET
 Search, read and download manga with MintManger.NET
 # How to use
 * To load all mangas
