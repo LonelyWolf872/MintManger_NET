@@ -77,7 +77,7 @@ namespace MintManger_NET
         {
             foreach (string letter in _letters)
             {
-                net = new Net("https://mintmanga.live/list?letter=" + letter + "&sortType=name");
+                net.ChangeURL("https://mintmanga.live/list?letter=" + letter + "&sortType=name");
                 bool tmp_b = false;
                 while (!tmp_b && !quit)
                 {
@@ -94,17 +94,30 @@ namespace MintManger_NET
         }
         private void SearchManga(string search)
         {
-            net = new Net("https://mintmanga.live/search", Net.HTTPMethod.POST);
+            net.ChangeURL("https://mintmanga.live/search", Net.HTTPMethod.POST);
             bool tmp_b = false;
-            while (!tmp_b)
+            while (!tmp_b && !quit)
             {
                 tmp_b = net.Send("q=" + search);
-                if (quit) return;
+                if (!tmp_b)
+                {
+                    net.ChangeURL("https://mintmanga.live/search", Net.HTTPMethod.POST);
+                }
             }
+            if (quit) return;
             MangaParser();
         }
         private void reloadBtn_Click(object sender, EventArgs e)
         {
+            if (thread != null)
+            {
+                if (thread.IsAlive)
+                {
+                    quit = true;
+                    thread.Join();
+                    quit = false;
+                }
+            }
             reloadBtn.Enabled = false; 
             progressBar1.Visible = true;
             progressBar1.Maximum = 0;
@@ -166,7 +179,10 @@ namespace MintManger_NET
                 CheckInvoke(() => {
                     mc.DoubleClick += MangaDoubleClick;
                     flowLayoutPanel1.Controls.Add(mc);
-                    progressBar1.Value++;
+                    if (progressBar1.Value > progressBar1.Maximum)
+                        progressBar1.Value = progressBar1.Maximum;
+                    else
+                        progressBar1.Value++;
                 });
             }
             CheckInvoke(() => {
@@ -232,6 +248,15 @@ namespace MintManger_NET
         {
             if(e.KeyCode == Keys.Enter)
             {
+                if (thread != null)
+                {
+                    if (thread.IsAlive)
+                    {
+                        quit = true;
+                        thread.Join();
+                        quit = false;
+                    }
+                }
                 reloadBtn.Enabled = false;
                 progressBar1.Visible = true;
                 progressBar1.Maximum = 0;
