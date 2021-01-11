@@ -17,6 +17,7 @@ namespace MintManger_NET
     public partial class Form1 : Form
     {
         Thread thread;
+        bool isAsync = true;
         public bool quit = false;
         List<string> _letters = new List<string>()
         {
@@ -72,6 +73,8 @@ namespace MintManger_NET
         public Form1()
         {
             InitializeComponent();
+            Multithreading.SetMaxTaskCount(10);
+            net.Send("");
         }
         private void GetAllManga()
         {
@@ -94,11 +97,11 @@ namespace MintManger_NET
         }
         private void SearchManga(string search)
         {
-            net.ChangeURL("https://mintmanga.live/search", Net.HTTPMethod.POST);
+            net = new Net("https://mintmanga.live/search", Net.HTTPMethod.POST);
             bool tmp_b = false;
             while (!tmp_b && !quit)
             {
-                tmp_b = net.Send("q=" + search);
+                tmp_b = net.Send("q=" + net.CyrillicToURL(search));
                 if (!tmp_b)
                 {
                     net.ChangeURL("https://mintmanga.live/search", Net.HTTPMethod.POST);
@@ -129,66 +132,129 @@ namespace MintManger_NET
 
         public void MangaParser()
         {
-            string tmp_string = net.GetResponse();
-            HtmlParser html = new HtmlParser();
-            var doc = html.ParseDocument(tmp_string);
-            var collection = doc.QuerySelectorAll("div.tile.col-sm-6");
-            CheckInvoke(() => {
-                progressBar1.Maximum = collection.Count();
-                progressBar1.Value = 0;
-                progressBar1.Visible = true;
-                });
-            foreach (var element in collection)
+            if (isAsync)
             {
-                var img = element.QuerySelector("img");
-                string tmp_imgPath = "";
-                if (img != null) tmp_imgPath = img.GetAttribute("data-original");
-                else tmp_imgPath = null;
-                Image tmp_img = null;
-                if (tmp_imgPath != null)
+                string tmp_string = net.GetResponse();
+                HtmlParser html = new HtmlParser();
+                var doc = html.ParseDocument(tmp_string);
+                var collection = doc.QuerySelectorAll("div.tile.col-sm-6");
+                CheckInvoke(() =>
                 {
-                    tmp_img = net.DownloadImage(tmp_imgPath);
-                    net.GetFolder(tmp_imgPath);
+                    progressBar1.Maximum = collection.Count();
+                    progressBar1.Value = 0;
+                    progressBar1.Visible = true;
+                });
+                foreach (var element in collection)
+                {
+                    var img = element.QuerySelector("img");
+                    string tmp_imgPath = "";
+                    if (img != null) tmp_imgPath = img.GetAttribute("data-original");
+                    else tmp_imgPath = null;
+                    var desc = element.QuerySelector("div.desc");
+                    var title = desc.QuerySelector("h4");
+                    var origTitleH3 = desc.QuerySelector("h3");
+                    var origTitle = origTitleH3.QuerySelector("a");
+                    string origTitleText = "";
+                    if (origTitle == null) origTitleText = "";
+                    else origTitleText = origTitle.TextContent;
+                    string titleText = "";
+                    if (title == null) titleText = "";
+                    else titleText = title.TextContent;
+                    var titles = origTitleText + " - " + titleText;
+                    MangaControl mc = new MangaControl(tmp_imgPath, titles/*GetAttribute("title")*/, element.QuerySelector("a.non-hover").GetAttribute("href"));
+                    mc.Tag = element.QuerySelector("a").GetAttribute("href");
+                    /*if(InvokeRequired)
+                    {
+                        Invoke(new MethodInvoker(() => { panel.Controls.Add(mc); }));
+                    } else
+                    {
+                        panel.Controls.Add(mc);
+                    }
+                    progressBar1.Value++;*/
+                    if (quit) return;
+                    CheckInvoke(() =>
+                    {
+                        mc.DoubleClick += MangaDoubleClick;
+                        flowLayoutPanel1.Controls.Add(mc);
+                        if (progressBar1.Value > progressBar1.Maximum)
+                            progressBar1.Value = progressBar1.Maximum;
+                        else
+                            progressBar1.Value++;
+                    });
+                    Thread.Sleep(0);
                 }
-                else
+                CheckInvoke(() =>
                 {
-                    tmp_img = new Bitmap(1, 1);
-                }
-                var desc = element.QuerySelector("div.desc");
-                var title = desc.QuerySelector("h4");
-                var origTitleH3 = desc.QuerySelector("h3");
-                var origTitle = origTitleH3.QuerySelector("a");
-                string origTitleText = "";
-                if (origTitle == null) origTitleText = "";
-                else origTitleText = origTitle.TextContent;
-                string titleText = "";
-                if (title == null) titleText = "";
-                else titleText = title.TextContent;
-                var titles = origTitleText + " - " + titleText;
-                MangaControl mc = new MangaControl(tmp_img, titles/*GetAttribute("title")*/, element.QuerySelector("a.non-hover").GetAttribute("href"));
-                mc.Tag = element.QuerySelector("a").GetAttribute("href");
-                /*if(InvokeRequired)
-                {
-                    Invoke(new MethodInvoker(() => { panel.Controls.Add(mc); }));
-                } else
-                {
-                    panel.Controls.Add(mc);
-                }
-                progressBar1.Value++;*/
-                if (quit) return;
-                CheckInvoke(() => {
-                    mc.DoubleClick += MangaDoubleClick;
-                    flowLayoutPanel1.Controls.Add(mc);
-                    if (progressBar1.Value > progressBar1.Maximum)
-                        progressBar1.Value = progressBar1.Maximum;
-                    else
-                        progressBar1.Value++;
+                    reloadBtn.Enabled = true;
+                    progressBar1.Visible = false;
                 });
             }
-            CheckInvoke(() => {
-                reloadBtn.Enabled = true;
-                progressBar1.Visible = false;
-            });
+            else
+            {
+                string tmp_string = net.GetResponse();
+                HtmlParser html = new HtmlParser();
+                var doc = html.ParseDocument(tmp_string);
+                var collection = doc.QuerySelectorAll("div.tile.col-sm-6");
+                CheckInvoke(() =>
+                {
+                    progressBar1.Maximum = collection.Count();
+                    progressBar1.Value = 0;
+                    progressBar1.Visible = true;
+                });
+                foreach (var element in collection)
+                {
+                    var img = element.QuerySelector("img");
+                    string tmp_imgPath = "";
+                    if (img != null) tmp_imgPath = img.GetAttribute("data-original");
+                    else tmp_imgPath = null;
+                    Image tmp_img = null;
+                    if (tmp_imgPath != null)
+                    {
+                        tmp_img = net.DownloadImage(tmp_imgPath);
+                        net.GetFolder(tmp_imgPath);
+                    }
+                    else
+                    {
+                        tmp_img = new Bitmap(1, 1);
+                    }
+                    var desc = element.QuerySelector("div.desc");
+                    var title = desc.QuerySelector("h4");
+                    var origTitleH3 = desc.QuerySelector("h3");
+                    var origTitle = origTitleH3.QuerySelector("a");
+                    string origTitleText = "";
+                    if (origTitle == null) origTitleText = "";
+                    else origTitleText = origTitle.TextContent;
+                    string titleText = "";
+                    if (title == null) titleText = "";
+                    else titleText = title.TextContent;
+                    var titles = origTitleText + " - " + titleText;
+                    MangaControl mc = new MangaControl(tmp_img, titles/*GetAttribute("title")*/, element.QuerySelector("a.non-hover").GetAttribute("href"));
+                    mc.Tag = element.QuerySelector("a").GetAttribute("href");
+                    /*if(InvokeRequired)
+                    {
+                        Invoke(new MethodInvoker(() => { panel.Controls.Add(mc); }));
+                    } else
+                    {
+                        panel.Controls.Add(mc);
+                    }
+                    progressBar1.Value++;*/
+                    if (quit) return;
+                    CheckInvoke(() =>
+                    {
+                        mc.DoubleClick += MangaDoubleClick;
+                        flowLayoutPanel1.Controls.Add(mc);
+                        if (progressBar1.Value > progressBar1.Maximum)
+                            progressBar1.Value = progressBar1.Maximum;
+                        else
+                            progressBar1.Value++;
+                    });
+                }
+                CheckInvoke(() =>
+                {
+                    reloadBtn.Enabled = true;
+                    progressBar1.Visible = false;
+                });
+            }
         }
         private void GetChapters(string mangaPath)
         {
@@ -254,9 +320,9 @@ namespace MintManger_NET
                     {
                         quit = true;
                         thread.Join();
-                        quit = false;
                     }
                 }
+                quit = false;
                 reloadBtn.Enabled = false;
                 progressBar1.Visible = true;
                 progressBar1.Maximum = 0;
@@ -271,7 +337,7 @@ namespace MintManger_NET
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             quit = true;
-            thread.Join();
+            if(thread != null) if(thread.IsAlive) thread.Join();
         }
     }
 }

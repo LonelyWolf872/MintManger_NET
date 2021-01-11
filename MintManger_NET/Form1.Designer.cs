@@ -1,4 +1,6 @@
 ﻿
+using System.Text;
+
 namespace MintManger_NET
 {
     partial class Form1
@@ -29,6 +31,9 @@ namespace MintManger_NET
         /// </summary>
         private void InitializeComponent()
         {
+            //
+            // Create controls
+            //
             this.reloadBtn = new System.Windows.Forms.Button();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();

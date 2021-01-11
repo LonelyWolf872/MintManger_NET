@@ -7,6 +7,8 @@ using System.Net.Cache;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace LowUtilities
 {
@@ -14,6 +16,8 @@ namespace LowUtilities
     {
         delegate void HTTPWebRequestHandler(string response);
         event HTTPWebRequestHandler OnResponse;
+        public delegate void DownloadHandler(object downloaded);
+        public event DownloadHandler OnDownloadComplete;
         public enum HTTPMethod
         {
             GET,
@@ -25,25 +29,34 @@ namespace LowUtilities
         private string _response;
         public Net(string uri, HTTPMethod method = HTTPMethod.GET, string useragent = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36", string contenttype = "application/x-www-form-urlencoded", bool keepalive = false)
         {
-            http = WebRequest.CreateHttp(uri);
-            if(method == HTTPMethod.GET) {
-                http.Method = "GET";
-            } else {
-                http.Method = "POST";
+            try
+            {
+                http = WebRequest.CreateHttp(uri);
+                if (method == HTTPMethod.GET)
+                {
+                    http.Method = "GET";
+                }
+                else
+                {
+                    http.Method = "POST";
+                }
+                http.UserAgent = useragent;
+                http.ContentType = contenttype;
+                http.KeepAlive = keepalive;
+                http.UseDefaultCredentials = true;
+                cookie_container = new CookieContainer();
+                http.CachePolicy = new RequestCachePolicy(RequestCacheLevel.Default);
+                http.AllowAutoRedirect = true;
+                http.CookieContainer = cookie_container;
+                http.ContinueTimeout = 2000;
+                http.Timeout = 3000;
+                cookies = new CookieCollection();
+            } catch(Exception e)
+            {
+                Debug.Fail(e.Message + " | " + e.StackTrace);
             }
-            http.UserAgent = useragent;
-            http.ContentType = contenttype;
-            http.KeepAlive = keepalive;
-            http.UseDefaultCredentials = true;
-            cookie_container = new CookieContainer();
-            http.CachePolicy = new RequestCachePolicy(RequestCacheLevel.Default);
-            http.AllowAutoRedirect = true;
-            http.CookieContainer = cookie_container;
-            http.ContinueTimeout = 2000;
-            http.Timeout = 3000;
-            cookies = new CookieCollection();
         }
-        public void ChangeURL(string uri, HTTPMethod method = HTTPMethod.GET, string useragent = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36", string contenttype = "application/x-www-form-urlencoded", bool keepalive = false)
+        public void ChangeURL(string uri, HTTPMethod method = HTTPMethod.GET, string useragent = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36", string contenttype = "application/x-www-form-urlencoded", bool keepalive = true)
         {
             http.Abort();
             http = null;
@@ -67,6 +80,17 @@ namespace LowUtilities
             http.ContinueTimeout = 2000;
             http.Timeout = 3000;
             cookies = new CookieCollection();
+        }
+        public string CyrillicToURL(string url)
+        {
+            try
+            {
+                return Uri.EscapeDataString(url);
+            } catch (Exception e)
+            {
+                Debug.WriteLine(e.Message);
+                return null;
+            }
         }
         public void ChangeMethod(HTTPMethod method)
         {
@@ -165,6 +189,38 @@ namespace LowUtilities
             catch
             {
                 return null;
+            }
+        }
+        private void DownImgAsync(string imgUrl)
+        {
+            var taskCount = Multithreading.GetTaskCount();
+            var maxTaskCount = Multithreading.GetMaxTaskCount();
+            if (taskCount > maxTaskCount)
+            {
+                while (taskCount > maxTaskCount)
+                {
+                    taskCount = Multithreading.GetTaskCount();
+                    maxTaskCount = Multithreading.GetMaxTaskCount();
+                    Thread.Sleep(10);
+                }
+            }
+            Multithreading.AddTask();
+            Image img = DownloadImage(imgUrl);
+            OnDownloadComplete(img);
+            Multithreading.DeleteTask();
+        }
+        public async void DownloadImageAsync(string imgUrl)
+        {
+            try
+            {
+                await Task.Run(() =>
+                {
+                    DownImgAsync(imgUrl);
+                });
+                
+            } catch (Exception e)
+            {
+                Debug.Fail(e.Message);
             }
         }
         public Image DownloadImage(string imgUrl)

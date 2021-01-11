@@ -1,9 +1,12 @@
-﻿using System;
+﻿using LowUtilities;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MintManger_NET
@@ -13,6 +16,7 @@ namespace MintManger_NET
         public Image image { get; set; }
         public string Title { get; set; }
         public string Link { get; set; }
+        private Net net;
         public MangaControl()
         {
             image = null;
@@ -33,6 +37,20 @@ namespace MintManger_NET
             image = null;
             Title = title;
             Link = link;
+            if (imgUrl != null && imgUrl != "")
+            {
+                net = new Net(imgUrl);
+                net.OnDownloadComplete += Net_OnDownloadComplete;
+                Task.Run(() => net.DownloadImageAsync(imgUrl));
+            }
+        }
+
+        private void Net_OnDownloadComplete(object downloaded)
+        {
+            if (downloaded != null)
+            {
+                image = (Image)downloaded;
+            }
         }
 
         private void MangaControl_Paint(object sender, PaintEventArgs e)
