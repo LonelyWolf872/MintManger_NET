@@ -31,9 +31,6 @@ namespace MintManger_NET
         /// </summary>
         private void InitializeComponent()
         {
-            //
-            // Create controls
-            //
             this.reloadBtn = new System.Windows.Forms.Button();
             this.flowLayoutPanel1 = new System.Windows.Forms.FlowLayoutPanel();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
@@ -81,6 +78,7 @@ namespace MintManger_NET
             this.searchBox.PlaceholderText = "Search";
             this.searchBox.Size = new System.Drawing.Size(168, 21);
             this.searchBox.TabIndex = 3;
+            this.searchBox.KeyDown += new System.Windows.Forms.KeyEventHandler(this.searchBox_KeyDown);
             this.searchBox.KeyUp += new System.Windows.Forms.KeyEventHandler(this.textBox1_KeyUp);
             // 
             // Form1

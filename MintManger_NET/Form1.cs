@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -259,9 +260,14 @@ namespace MintManger_NET
         private void GetChapters(string mangaPath)
         {
             flowLayoutPanel1.Controls.Clear();
-            net = new Net(mangaPath);
-            net.Send("");
+            bool tmp_b = false;
+            while (!tmp_b)
+            {
+                net = new Net(mangaPath);
+                tmp_b = net.Send("");
+            }
             string tmp_string = net.GetResponse();
+            Debug.WriteLine(tmp_string);
             HtmlParser html = new HtmlParser();
             var doc = html.ParseDocument(tmp_string);
             var table = doc.QuerySelector("table.table.table-hover");
@@ -275,14 +281,61 @@ namespace MintManger_NET
             {
                 var link = new LinkLabel();
                 link.Text = element.QuerySelector("a").GetAttribute("href");
+                link.Tag = "https://mintmanga.live" + element.QuerySelector("a").GetAttribute("href") + "?mtr=1";
+                link.Click += (object sender, EventArgs e) => { GetChapter((sender as Control).Tag.ToString()); };
                 link.AutoSize = true;
                 CheckInvoke(() => {
                     flowLayoutPanel1.Controls.Add(link);
-                    progressBar1.Maximum = collection.Count();
-                    progressBar1.Value = 0;
+                    progressBar1.Value++;
                     progressBar1.Visible = true;
                 });
             }
+            CheckInvoke(() => {
+                reloadBtn.Visible = true;
+                progressBar1.Visible = false;
+            });
+        }
+        private void GetChapter(string volumePath)
+        {
+            flowLayoutPanel1.Controls.Clear();
+            bool tmp_b = false;
+            while (!tmp_b)
+            {
+                net = new Net(volumePath);
+                tmp_b = net.Send("");
+            }
+            string tmp_string = net.GetResponse();
+            File.WriteAllText("html.txt", tmp_string);
+            HtmlParser html = new HtmlParser();
+            var doc = html.ParseDocument(tmp_string);
+            var scripts = doc.Scripts;
+            CheckInvoke(() => {
+                progressBar1.Maximum = scripts.Count();
+                progressBar1.Value = 0;
+                progressBar1.Visible = true;
+            });
+            foreach (var script in scripts)
+            {
+                if (script.TextContent.Contains("rm_h.init"))
+                {
+                    var list = GetChapterImagesToDownload(script.TextContent);
+                    foreach(string url in list)
+                    {
+                        PictureBox pb = new PictureBox();
+                        pb.SizeMode = PictureBoxSizeMode.AutoSize;
+                        Net nets = new Net(url);
+                        nets.OnDownloadComplete += (image) => { 
+                            if(image != null) CheckInvoke(() => { pb.Image = (Image)image; });
+                                };
+                        nets.DownloadImageAsync(url);
+                        flowLayoutPanel1.Controls.Add(pb);
+                    }
+                }
+            }
+            CheckInvoke(() => {
+                reloadBtn.Visible = true;
+                progressBar1.Visible = false;
+            });
         }
         private void MangaDoubleClick(object sender, EventArgs e)
         {
@@ -297,7 +350,34 @@ namespace MintManger_NET
                 GetChapters("https://mintmanga.live/" + control.Tag.ToString());
             }
         }
-
+        private List<string> GetChapterImagesToDownload(string script)
+        {
+            try
+            {
+                var tmp_i1 = script.IndexOf("rm_h.init");
+                var tmp_string = script.Substring(tmp_i1);
+                tmp_i1 = tmp_string.IndexOf("[[") + 2;
+                var tmp_i2 = tmp_string.IndexOf("]]");
+                tmp_string = tmp_string.Substring(tmp_i1, tmp_i2 - tmp_i1);
+                var tmp_strings = tmp_string.Split("],[");
+                var tmp_stringsf = new List<string>();
+                foreach (var tmp_s in tmp_strings)
+                {
+                    var strings = tmp_s.Split(',');
+                    strings[0] = strings[0].Replace("\'", "");
+                    strings[0] = strings[0].Replace("\"", "");
+                    strings[2] = strings[2].Replace("\'", "");
+                    strings[2] = strings[2].Replace("\"", "");
+                    tmp_stringsf.Add(strings[0] + strings[2]);
+                }
+                return tmp_stringsf;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e.Message);
+                return null;
+            }
+        }
         private void CheckInvoke(Action action)
         {
             if (InvokeRequired)
@@ -330,7 +410,6 @@ namespace MintManger_NET
                 flowLayoutPanel1.Controls.Clear();
                 thread = new Thread(() => SearchManga(searchBox.Text));
                 thread.Start();
-                e.Handled = true;
             }
         }
 
@@ -338,6 +417,14 @@ namespace MintManger_NET
         {
             quit = true;
             if(thread != null) if(thread.IsAlive) thread.Join();
+        }
+
+        private void searchBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if(e.KeyCode == Keys.Enter)
+            {
+                e.Handled = e.SuppressKeyPress = true;
+            }
         }
     }
 }
